@@ -122,7 +122,9 @@ def parse_monthly_csv(path):
             continue  # blank line
         record = dict(zip(mapped, cells))
         label = record["period"].strip()
-        if label.upper() == "TOTAL":
+        # The TOTAL row is marked differently from month to month: sometimes the Period
+        # cell says TOTAL, sometimes the Period is the month and the Org Code says TOTAL.
+        if label.upper() == "TOTAL" or record["org_code"].strip().upper() == "TOTAL":
             total_row = {c: to_int(record.get(c)) for c in MEASURE_COLUMNS}
             continue
         periods.add(label)
@@ -170,6 +172,7 @@ def load_monthly_file(conn, path):
     with conn.cursor() as cur:
         cur.execute("DELETE FROM stg_ae_monthly WHERE period_date = %s", (period_date,))
         cur.execute("DELETE FROM stg_ae_monthly_total WHERE period_date = %s", (period_date,))
+        cur.execute("DELETE FROM stg_load_log WHERE period_date = %s", (period_date,))
         execute_values(
             cur,
             f"INSERT INTO stg_ae_monthly ({', '.join(MONTHLY_COLUMNS)}) VALUES %s",
